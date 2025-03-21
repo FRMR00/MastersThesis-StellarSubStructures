@@ -6,11 +6,11 @@ from scipy.optimize import curve_fit
 
 class velocityFitter:
     def __init__(self, velocities, Nbins, funcs, numParams, MLEparams=None, LSQparams=None, density=True):
-        self.velocities = velocities
+        self.velocities = np.array(velocities)
         self.Nbins = Nbins
         self.density = density
         self.numParams = numParams
-        self.funcNames = funcs
+        self.funcNames = np.array(funcs)
 
         self.funcs = [getattr(stats, f) for f in self.funcNames]
 
@@ -30,11 +30,14 @@ class velocityFitter:
         
     def init_plot(self, log=False):
         fig, ax = plt.subplots(1, 1)
+
+        ax.set_xlabel(r'$v_\phi$ (km/s)')
         ax.hist(self.velocities, bins=self.Nbins, density=True)
 
         ax.vlines(np.mean(self.velocities), 0, self.counts.max(), colors='r', linestyles='dashed', label='Mean')
         ax.vlines(np.median(self.velocities), 0, self.counts.max(), colors='orange', linestyles='dashed', label='Median')
         ax.legend()
+        ax.grid(alpha=0.5)
         if log:
             ax.set_yscale('log')
         plt.show()
@@ -87,16 +90,16 @@ class velocityFitter:
             compare_vals[i, 0] = r_squared(y, x, results[i], f.pdf)
             compare_vals[i, 1] = residuals(y, x, results[i], f.pdf)
             compare_vals[i, 2] =  AIC(x, results[i], f.logpdf)
-        
-        funcNames = funcNames[np.argsort(compare_vals[:, 2])]
-        compare_vals = compare_vals[np.argsort(compare_vals[:, 2])]
+        sort_mask = np.argsort(compare_vals[:, 2])
+        funcNames = funcNames[sort_mask]
+        compare_vals = compare_vals[sort_mask]
         print(f'{method} results:')
         for i, [r2, res, AIC_val] in enumerate(compare_vals):
             print(f"{funcNames[i]}: r2 = {r2:.4f}, S = {res:.6f}, AIC = {AIC_val:.3f}")
 
     def plot_distributions(self, log=False):
         num_funcs = len(self.funcNames)
-        rows = np.ceil(num_funcs / 2)  # Determine the number of rows needed
+        rows = np.ceil(num_funcs / 2).astype(int)  # Determine the number of rows needed
 
         fig, axs = plt.subplots(rows, 2, figsize=(15, rows * 5))  # Create 2xN grid
         axs = axs.flatten()  # Flatten for easy indexing
@@ -106,12 +109,12 @@ class velocityFitter:
         for i, ax in enumerate(axs):
             if i < num_funcs:
                 func = self.funcs[i]
-                
-                ax.plot(sample_vT, func.pdf(sample_vT, *self.LSQparams[i]), label=self.funcNames[i], color='yellow')
+                ax.set_xlabel(r'$v_\phi$ (km/s)')
+                ax.plot(sample_vT, func.pdf(sample_vT, *self.LSQparams[i]), label=self.funcNames[i], color='k')
                 ax.plot(sample_vT, func.pdf(sample_vT, *self.MLEparams[i]), label='MLE ' + self.funcNames[i], color='magenta', lw=3, alpha=0.7)
-                ax.hist(self.velocities, bins=self.Nbins, density=False, alpha=0.5, label='Data', color='blue')
+                ax.hist(self.velocities, bins=self.Nbins, density=self.density, alpha=0.5, label='Data', color='blue')
                 ax.legend(loc='lower right')
-
+                ax.grid(alpha=0.5)
                 if log:
                     ax.set_yscale('log')
             else:
